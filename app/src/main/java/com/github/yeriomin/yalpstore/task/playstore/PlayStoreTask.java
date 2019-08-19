@@ -29,20 +29,23 @@ import com.github.yeriomin.yalpstore.ContextUtil;
 import com.github.yeriomin.yalpstore.CredentialsEmptyException;
 import com.github.yeriomin.yalpstore.FirstLaunchChecker;
 import com.github.yeriomin.yalpstore.PlayStoreApiAuthenticator;
-import com.github.yeriomin.yalpstore.PreferenceUtil;
 import com.github.yeriomin.yalpstore.R;
+import com.github.yeriomin.yalpstore.YalpStoreApplication;
 import com.github.yeriomin.yalpstore.task.TaskWithProgress;
-import com.github.yeriomin.yalpstore.view.AccountTypeDialogBuilder;
+import com.github.yeriomin.yalpstore.view.LoginDialogBuilder;
 
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.net.ssl.SSLHandshakeException;
 
 abstract public class PlayStoreTask<T> extends TaskWithProgress<T> {
+
+    public static final AtomicBoolean isShowingLoginDialog = new AtomicBoolean(false);
 
     protected Throwable exception;
     protected TextView errorView;
@@ -104,7 +107,7 @@ abstract public class PlayStoreTask<T> extends TaskWithProgress<T> {
                 logInWithPredefinedAccount();
                 return;
             }
-        } else if (e.getCode() == 401 && PreferenceUtil.getBoolean(context, PlayStoreApiAuthenticator.PREFERENCE_APP_PROVIDED_EMAIL)) {
+        } else if (e.getCode() == 401 && YalpStoreApplication.user.appProvidedEmail()) {
             Log.i(getClass().getSimpleName(), "Token is stale");
             refreshToken();
             return;
@@ -112,8 +115,8 @@ abstract public class PlayStoreTask<T> extends TaskWithProgress<T> {
             ContextUtil.toast(this.context, R.string.error_incorrect_password);
             new PlayStoreApiAuthenticator(context).logout();
         }
-        if (ContextUtil.isAlive(context)) {
-            AccountTypeDialogBuilder builder = new AccountTypeDialogBuilder((Activity) context);
+        if (ContextUtil.isAlive(context) && isShowingLoginDialog.compareAndSet(false, true)) {
+            LoginDialogBuilder builder = new LoginDialogBuilder((Activity) context);
             builder.setCaller(this);
             builder.show();
         } else {
@@ -134,7 +137,7 @@ abstract public class PlayStoreTask<T> extends TaskWithProgress<T> {
         task.setCaller(this);
         task.setContext(context);
         task.prepareDialog(
-            context.getString(R.string.dialog_message_logging_in_predefined) + "\n" + context.getString(R.string.first_login_message),
+            context.getString(R.string.dialog_message_logging_in_predefined) + "\n\n" + context.getString(R.string.first_login_message),
             context.getString(R.string.dialog_title_logging_in)
         );
         task.execute();
